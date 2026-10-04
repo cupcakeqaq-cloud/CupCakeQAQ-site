@@ -1,0 +1,12 @@
+# 运行时数据（弹幕记录，勿提交）
+data/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+desktop.ini

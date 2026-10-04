@@ -5,14 +5,16 @@
 ## 目录结构
 
 ```
-├─ server.js           后端（零依赖，纯 Node 内置模块）
+├─ server.js           后端（零依赖，纯 Node 内置模块，含 CORS）
+├─ render.yaml         Render 一键部署后端
 ├─ package.json
 ├─ refresh-gallery.cjs 一键刷新画廊清单
 ├─ gallery.js          画廊内嵌清单（由脚本生成，双击打开也能显示）
 ├─ gallery.json        画廊 JSON 清单（由脚本生成，备用）
 ├─ index.html          页面
 ├─ css/style.css       样式
-├─ js/                 交互脚本（多语言 / 画廊 / 弹幕 / 彩蛋 / 通用）
+├─ js/                 交互脚本（多语言 / 画廊 / 弹幕 / 彩蛋 / 应用 / 通用）
+├─ js/config.js        留言板后端地址配置
 ├─ assets/fonts/       像素字体（Fusion Pixel Font，OFL 授权）
 ├─ assets/background/  网页大背景 windows.jpg + 自介小头图 cute.jpg
 ├─ assets/icon/        外链图标（米画师 / Gmail / bilibili / X / marshmallow）
@@ -59,17 +61,36 @@ npm start
 - `POST /api/danmaku` —— 提交一条弹幕（`{"text":"...","color":"#ff9dcb"}`）
 - `GET  /api/danmaku/stream` —— SSE 实时推送
 
-数据保存在 `data/danmaku.json`（最多保留 500 条）。若页面以 `file://` 直接打开（未启动后端），留言板会进入「本机演示模式」，弹幕只在当前浏览器飘过、不保存。
+数据保存在 `data/danmaku.json`（最多保留 500 条）。前端与后端分离部署时，改 `js/config.js` 里的 `window.DANMAKU_API` 指向后端地址。
 
-## 部署到线上（自部署）
+## 部署：GitHub Pages（前端）+ Render（留言板后端）
 
-本项目是自带后端的 Node 应用，可部署到任意支持 Node 的平台（Render / Railway / 自己的 VPS 等）：
+本页前端是纯静态的，可放 GitHub Pages；留言板后端（`server.js`）需单独部署到能跑 Node 的平台。仓库名建议 `CupCakeQAQ_site`。
 
-1. 把整个目录上传到服务器 / 推送到 Git 仓库。
-2. 启动命令：`node server.js`（或 `npm start`）。
-3. 监听端口由平台注入的 `PORT` 环境变量决定。
+### 1) 前端放到 GitHub Pages
 
-> 纯静态托管（GitHub Pages 等）**无法**运行后端弹幕；若只想静态托管，请改用第三方留言服务。
+把整个目录推到一个 GitHub 仓库（如 `CupCakeQAQ_site`，Public），然后在仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
+
+```
+https://<你的用户名>.github.io/CupCakeQAQ_site/
+```
+
+> 建议在根目录放一个空的 `.nojekyll` 文件，避免 Jekyll 处理。
+
+### 2) 留言板后端放到 Render（免费）
+
+1. 打开 <https://render.com> 注册并登录。
+2. 控制台 **New → Web Service**，连接同一个 GitHub 仓库。
+3. 配置：Runtime = Node；Build Command 留空；Start Command = `node server.js`；选 Free 套餐。
+   （仓库里已带 `render.yaml`，也可用 **New → Blueprint** 一键创建）
+4. 部署完成后，Render 会给一个地址，形如 `https://cupcake-danmaku.onrender.com`。
+5. 回到本项目，编辑 `js/config.js`：
+   ```js
+   window.DANMAKU_API = 'https://cupcake-danmaku.onrender.com';
+   ```
+6. 提交并推送，前端即会跨域调用该后端，弹幕实现多访客实时互通。
+
+> Render 免费实例闲置约 15 分钟会休眠（首次访问有几秒冷启动），且磁盘是临时的（实例重启后历史弹幕会清空）。如需长期保存历史弹幕，可改用带数据库的托管方案（如 Supabase），需要时我可以帮你接入。
 
 ## 彩蛋
 

@@ -12,6 +12,7 @@
   var statusState = 'wait'; // wait | on | off
   var LANES = [10, 42, 74, 106];
   var dots = [];
+  var BASE = (window.DANMAKU_API || '').replace(/\/+$/, '');
 
   COLORS.forEach(function (c, i) {
     var d = document.createElement('span');
@@ -62,7 +63,7 @@
     if (!text) return;
     input.value = '';
     if (connected) {
-      fetch('/api/danmaku', {
+      fetch(BASE + '/api/danmaku', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text, color: currentColor })
@@ -81,7 +82,7 @@
   function init() {
     setStatus('wait');
 
-    fetch('/api/danmaku')
+    fetch(BASE + '/api/danmaku')
       .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
       .then(function (d) {
         connected = true;
@@ -94,7 +95,7 @@
       .catch(function () { /* 后端不可用 */ });
 
     try {
-      var es = new EventSource('/api/danmaku/stream');
+      var es = new EventSource(BASE + '/api/danmaku/stream');
       es.onopen = function () { connected = true; setStatus('on'); };
       es.onmessage = function (ev) {
         try { var item = JSON.parse(ev.data); spawn(item.text, item.color); } catch (e) {}

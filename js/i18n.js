@@ -40,7 +40,7 @@
     danmakuHint: { zh: '点「发送」即可留言', ja: '「送信」でコメントできます', en: 'Hit Send to leave a comment' },
     danmakuStatusWait: { zh: '● 连接中…', ja: '● 接続中…', en: '● Connecting…' },
     danmakuStatusOn: { zh: '● 已连接', ja: '● 接続済み', en: '● Connected' },
-    danmakuStatusOff: { zh: '○ 未连接（本机演示模式）', ja: '○ 未接続（ローカルデモ）', en: '○ Offline (local demo)' },
+    danmakuStatusOff: { zh: '○ 未连接', ja: '○ 未接続', en: '○ Offline' },
 
     galleryHint: { zh: '单击图片可放大', ja: 'クリックで拡大', en: 'Click to enlarge' },
     galleryEmpty: {
