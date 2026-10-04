@@ -1,0 +1,15 @@
+{
+  "name": "cupcake-selfintro",
+  "version": "1.0.0",
+  "description": "12あKa@被告人杯糕_ 的个人自我介绍页（cutecore / Y2K / Windows XP 风格）",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "refresh:gallery": "node refresh-gallery.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
