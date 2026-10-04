@@ -65,14 +65,14 @@ npm start
 
 ## 部署：GitHub Pages（前端）+ Render（留言板后端）
 
-本页前端是纯静态的，可放 GitHub Pages；留言板后端（`server.js`）需单独部署到能跑 Node 的平台。仓库名建议 `CupCakeQAQ_site`。
+本页前端是纯静态的，可放 GitHub Pages；留言板后端（`server.js`）需单独部署到能跑 Node 的平台。仓库名为 `CupCakeQAQ-site`。
 
 ### 1) 前端放到 GitHub Pages
 
-把整个目录推到一个 GitHub 仓库（如 `CupCakeQAQ_site`，Public），然后在仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
+把整个目录推到一个 GitHub 仓库（`CupCakeQAQ-site`，Public），然后在仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
 
 ```
-https://<你的用户名>.github.io/CupCakeQAQ_site/
+https://cupcakeqaq-cloud.github.io/CupCakeQAQ-site/
 ```
 
 > 建议在根目录放一个空的 `.nojekyll` 文件，避免 Jekyll 处理。
