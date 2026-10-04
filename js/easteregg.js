@@ -7,10 +7,14 @@
   var PRESSED = 'Easter%20egg/2.png';
   var SOUND = 'Easter%20egg/%E9%9F%B3%E6%95%88.wav';
 
-  var timers = [];
   var audio = null;
   var clickCount = 0;
   var sequenceStarted = false;
+  var animTimer = null;
+
+  // 预加载两张贴图，避免首次点击时 2.png 加载太慢导致「切换失效」
+  var _pre = new Image(); _pre.src = NORMAL;
+  var _pre2 = new Image(); _pre2.src = PRESSED;
 
   function ensureAudio() {
     if (!audio) {
@@ -23,21 +27,19 @@
     if (!a) return;
     try { a.currentTime = 0; var p = a.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
   }
-  function clearTimers() {
-    for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
-    timers = [];
-  }
 
   duck.addEventListener('click', function () {
-    clearTimers();
     playSound();
     duck.classList.remove('squish');
     void duck.offsetWidth;
     duck.classList.add('squish');
     img.src = NORMAL;
-    timers.push(setTimeout(function () { img.src = PRESSED; }, 180));
-    timers.push(setTimeout(function () { img.src = NORMAL; }, 430));
-    timers.push(setTimeout(function () { duck.classList.remove('squish'); }, 620));
+    // 2.png 的切换不清除：即使连点很快，也能保证按压图正常显示
+    setTimeout(function () { img.src = PRESSED; }, 180);
+    setTimeout(function () { img.src = NORMAL; }, 430);
+    // 只有动画收尾需要按最后一次点击重置
+    clearTimeout(animTimer);
+    animTimer = setTimeout(function () { duck.classList.remove('squish'); }, 620);
 
     if (!sequenceStarted) {
       clickCount++;
