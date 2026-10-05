@@ -1,9 +1,9 @@
 /* ══════════════════════════════════════════════════════════
    留言板后端地址配置
    ──────────────────────────────────────────────────────────
-   - 留空 '' = 同源（整站用 node server.js 运行时，或后端和前端同一域名）。
-   - 前端放在 GitHub Pages、后端单独部署到 Render/Railway 等平台时，
-     在这里填后端的完整地址（不带结尾斜杠），例如：
-     window.DANMAKU_API = 'https://你的应用.onrender.com';
+   - 留空 '' = 同源（本地用 node server.js 跑整站时，或前后端同域名）。
+   - 前端放在 GitHub Pages、后端部署在 Cloudflare Workers 时，
+     在这里填 Worker 的地址（不带结尾斜杠），例如：
+     window.DANMAKU_API = 'https://cupcake-danmaku.你的账号.workers.dev';
    ══════════════════════════════════════════════════════════ */
 window.DANMAKU_API = '';

@@ -13,6 +13,7 @@
   var LANES = [10, 42, 74, 106];
   var dots = [];
   var BASE = (window.DANMAKU_API || '').replace(/\/+$/, '');
+  var seen = {}; // 已播放过的弹幕 id，避免自己发的重复显示
 
   COLORS.forEach(function (c, i) {
     var d = document.createElement('span');
@@ -58,6 +59,16 @@
     el.addEventListener('animationend', function () { el.remove(); });
   }
 
+  // 带 id 去重的播放：SSE 回显与 POST 返回同一条时只显示一次
+  function spawnItem(item) {
+    if (!item || !item.text) return;
+    if (item.id) {
+      if (seen[item.id]) return;
+      seen[item.id] = 1;
+    }
+    spawn(item.text, item.color);
+  }
+
   function send() {
     var text = input.value.replace(/^\s+|\s+$/g, '');
     if (!text) return;
@@ -69,7 +80,7 @@
         body: JSON.stringify({ text: text, color: currentColor })
       })
         .then(function (r) { return r.json(); })
-        .then(function (d) { if (d && d.ok && d.item) spawn(d.item.text, d.item.color); })
+        .then(function (d) { if (d && d.ok && d.item) spawnItem(d.item); })
         .catch(function () { spawn(text, currentColor); });
     } else {
       spawn(text, currentColor);
@@ -87,9 +98,9 @@
       .then(function (d) {
         connected = true;
         setStatus('on');
-        var list = d.list || [];
+        var list = (d.list || []).slice(-15); // 只回放最近 15 条
         list.forEach(function (item, i) {
-          setTimeout(function () { spawn(item.text, item.color); }, i * 650);
+          setTimeout(function () { spawnItem(item); }, i * 300);
         });
       })
       .catch(function () { /* 后端不可用 */ });
@@ -98,7 +109,7 @@
       var es = new EventSource(BASE + '/api/danmaku/stream');
       es.onopen = function () { connected = true; setStatus('on'); };
       es.onmessage = function (ev) {
-        try { var item = JSON.parse(ev.data); spawn(item.text, item.color); } catch (e) {}
+        try { spawnItem(JSON.parse(ev.data)); } catch (e) {}
       };
       es.onerror = function () {
         connected = false;

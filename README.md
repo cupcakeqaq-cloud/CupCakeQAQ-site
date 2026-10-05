@@ -63,34 +63,52 @@ npm start
 
 数据保存在 `data/danmaku.json`（最多保留 500 条）。前端与后端分离部署时，改 `js/config.js` 里的 `window.DANMAKU_API` 指向后端地址。
 
-## 部署：GitHub Pages（前端）+ Render（留言板后端）
+## 部署：GitHub Pages（前端）+ Cloudflare Workers（留言板后端）
 
-本页前端是纯静态的，可放 GitHub Pages；留言板后端（`server.js`）需单独部署到能跑 Node 的平台。仓库名为 `CupCakeQAQ-site`。
+本页前端是纯静态的，放 GitHub Pages；留言板后端用 **Cloudflare Worker + Durable Object**（`worker.js`），免费、不休眠、数据持久。仓库名为 `CupCakeQAQ-site`。
 
 ### 1) 前端放到 GitHub Pages
 
-把整个目录推到一个 GitHub 仓库（`CupCakeQAQ-site`，Public），然后在仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
+在仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
 
 ```
 https://cupcakeqaq-cloud.github.io/CupCakeQAQ-site/
 ```
 
-> 建议在根目录放一个空的 `.nojekyll` 文件，避免 Jekyll 处理。
+> 根目录已放 `.nojekyll`，避免 Jekyll 处理。
 
-### 2) 留言板后端放到 Render（免费）
+### 2) 留言板后端部署到 Cloudflare Workers
 
-1. 打开 <https://render.com> 注册并登录。
-2. 控制台 **New → Web Service**，连接同一个 GitHub 仓库。
-3. 配置：Runtime = Node；Build Command 留空；Start Command = `node server.js`；选 Free 套餐。
-   （仓库里已带 `render.yaml`，也可用 **New → Blueprint** 一键创建）
-4. 部署完成后，Render 会给一个地址，形如 `https://cupcake-danmaku.onrender.com`。
-5. 回到本项目，编辑 `js/config.js`：
-   ```js
-   window.DANMAKU_API = 'https://cupcake-danmaku.onrender.com';
-   ```
-6. 提交并推送，前端即会跨域调用该后端，弹幕实现多访客实时互通。
+在本项目根目录执行（首次需要浏览器授权登录）：
 
-> Render 免费实例闲置约 15 分钟会休眠（首次访问有几秒冷启动），且磁盘是临时的（实例重启后历史弹幕会清空）。如需长期保存历史弹幕，可改用带数据库的托管方案（如 Supabase），需要时我可以帮你接入。
+```bash
+npx wrangler login     # 会打开浏览器，点授权
+npx wrangler deploy    # 部署 worker.js
+```
+
+部署成功后会输出一个地址，形如：
+
+```
+https://cupcake-danmaku.你的账号.workers.dev
+```
+
+### 3) 把后端地址填进前端
+
+编辑 `js/config.js`：
+
+```js
+window.DANMAKU_API = 'https://cupcake-danmaku.你的账号.workers.dev';
+```
+
+然后提交推送。之后弹幕即通过该 Worker 实现多访客实时互通。
+
+> 验证后端：浏览器打开 `https://<你的地址>/api/danmaku`，返回 `{"list":[...]}` 即正常。
+>
+> API 与本地 `server.js` 完全一致：`GET /api/danmaku`、`POST /api/danmaku`、`GET /api/danmaku/stream`。
+>
+> 数据存在 Durable Object 的持久化存储中（免费额度含 5GB），实例不会休眠，历史弹幕不会因重启丢失。
+>
+> 若改用其它平台（如 Render），仓库里的 `server.js` + `render.yaml` 仍可直接部署，配法相同。
 
 ## 彩蛋
 
