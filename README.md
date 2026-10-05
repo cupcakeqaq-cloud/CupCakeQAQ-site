@@ -5,25 +5,23 @@
 ## 目录结构
 
 ```
-├─ server.js           后端（零依赖，纯 Node 内置模块，含 CORS）
-├─ render.yaml         Render 一键部署后端
-├─ package.json
+├─ index.html          页面
+├─ css/style.css       样式
+├─ js/                 交互脚本（多语言 / 画廊 / 弹幕 / 彩蛋 / 小应用 / 通用）
+├─ js/config.js        留言板后端地址（留空=本地/同源）
 ├─ refresh-gallery.cjs 一键刷新画廊清单
 ├─ gallery.js          画廊内嵌清单（由脚本生成，双击打开也能显示）
 ├─ gallery.json        画廊 JSON 清单（由脚本生成，备用）
-├─ index.html          页面
-├─ css/style.css       样式
-├─ js/                 交互脚本（多语言 / 画廊 / 弹幕 / 彩蛋 / 应用 / 通用）
-├─ js/config.js        留言板后端地址配置
+├─ server.js           本地预览服务器（可选，含弹幕接口）
+├─ package.json
 ├─ assets/fonts/       像素字体（Fusion Pixel Font，OFL 授权）
 ├─ assets/background/  网页大背景 windows.jpg + 自介小头图 cute.jpg
 ├─ assets/icon/        外链图标（米画师 / Gmail / bilibili / X / marshmallow）
 ├─ assets/stickers/anime/ 装饰动图贴纸
 ├─ picture/            画廊作品（加图 / 删图后刷新即可）
-├─ Easter egg/         彩蛋贴图 1.png / 2.png + 音效.mp3
+├─ Easter egg/         彩蛋贴图 1.png / 2.png + 音效
 ├─ voice dl/           UTAU 声库 zip
-├─ icon.png            头像
-└─ data/               弹幕数据（运行时自动生成 danmaku.json）
+└─ icon.png            头像
 ```
 
 ## 本地运行
@@ -53,64 +51,33 @@ npm start
 
 布局采用瀑布流（CSS columns），任意数量图片都能自适应排布，不会破坏版式。双击 `index.html` 直接打开（file://）也能正常显示画廊。
 
-## 弹幕留言板（真后端）
+## 弹幕留言板
 
-弹幕通过后端存储并实时广播，多访客互通：
+留言会**随机循环播放**（洗牌袋算法：一轮内不重复；留言越少飘得越慢），新留言仍会实时插入。
 
-- `GET  /api/danmaku` —— 拉取历史弹幕
-- `POST /api/danmaku` —— 提交一条弹幕（`{"text":"...","color":"#ff9dcb"}`）
+目前线上是**纯静态**运行：没有后端时，留言只保存在访客自己的浏览器里（能发、能飘、能循环，但别人看不到、刷新即失）。
+
+若以后想做成「多访客实时互通」，只要接一个提供下面三个接口的后端，并把地址填进 `js/config.js` 的 `window.DANMAKU_API` 即可（前端无需改动）：
+
+- `GET  /api/danmaku` —— 拉取历史留言
+- `POST /api/danmaku` —— 提交一条（`{"text":"...","color":"#ff9dcb"}`）
 - `GET  /api/danmaku/stream` —— SSE 实时推送
 
-数据保存在 `data/danmaku.json`（最多保留 500 条）。前端与后端分离部署时，改 `js/config.js` 里的 `window.DANMAKU_API` 指向后端地址。
+仓库里的 `server.js` 就是这套接口的本地实现（`node server.js` 即可，数据存 `data/danmaku.json`）。
 
-## 部署：GitHub Pages（前端）+ Deno Deploy（留言板后端）
+## 部署：GitHub Pages
 
-本页前端是纯静态的，放 GitHub Pages；留言板后端用 **Deno Deploy**（`deno.ts`，数据存在 Deno KV）。仓库名为 `CupCakeQAQ-site`。
+前端是纯静态的，直接放 GitHub Pages：
 
-> 为什么不用 Cloudflare Workers：`*.workers.dev` 域名在国内网络被 DNS 污染 / 连接阻断，无法访问（除非绑自有域名）。`*.deno.dev` 可正常连通。
->
-> 仓库里的 `worker.js` + `wrangler.toml` 是 Cloudflare 备用方案，保持原样不影响使用。
-
-### 1) 前端放到 GitHub Pages
-
-在仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
+仓库 **Settings → Pages → Deploy from a branch → main / (root) → Save**，约 1 分钟后访问：
 
 ```
 https://cupcakeqaq-cloud.github.io/CupCakeQAQ-site/
 ```
 
 > 根目录已放 `.nojekyll`，避免 Jekyll 处理。
-
-### 2) 留言板后端部署到 Deno Deploy
-
-1. 打开 <https://console.deno.com/>，用 **GitHub 账号**登录并授权。
-2. **New Project / Create App** → 选择 **Deploy from GitHub** → 授权并选中仓库 `CupCakeQAQ-site`。
-3. 关键设置：
-   - **Entrypoint（入口文件）填 `deno.ts`**
-   - 其它保持默认（Deno 会读取仓库里的 `deno.json`）
-4. 点 **Deploy**，等待构建完成，会得到一个地址，形如：
-
-```
-https://cupcake-danmaku.你的账号.deno.dev
-```
-
-> 之后每次往 `main` 推送，Deno Deploy 会自动重新部署。
-
-### 3) 把后端地址填进前端
-
-编辑 `js/config.js`：
-
-```js
-window.DANMAKU_API = 'https://cupcake-danmaku.你的账号.deno.dev';
-```
-
-然后提交推送。之后弹幕即通过该后端实现多访客实时互通。
-
-> 验证后端：浏览器打开 `https://<你的地址>/api/danmaku`，返回 `{"list":[...]}` 即正常。
 >
-> API 与本地 `server.js` 完全一致：`GET /api/danmaku`、`POST /api/danmaku`、`GET /api/danmaku/stream`。
->
-> 实时推送用 SSE（`kv.watch` 监听 KV 变化），只有内容变化时才唤醒，很省免费额度。
+> 页面里所有资源都是相对路径，放在仓库子路径下也能正常工作。
 
 ## 彩蛋
 
@@ -118,7 +85,7 @@ window.DANMAKU_API = 'https://cupcake-danmaku.你的账号.deno.dev';
 
 ## 背景星星字符画
 
-`assets/star.txt` 里的星星字符画会随机位置、随机大小地在背景上淡入淡出（带粉色发光）。逻辑在 `js/starfield.js`；若以 file:// 打开页面，会使用脚本内置的同一份字符画。
+`assets/star.txt` 里的星星字符画会随机位置、随机大小地在背景上淡入淡出（白色发光）。逻辑在 `js/starfield.js`；若以 file:// 打开页面，会使用脚本内置的同一份字符画。
 
 ## 语言切换（中文 / 日本語 / English）
 

@@ -1,12 +1,5 @@
-# 运行时数据（弹幕记录，勿提交）
+# 运行时数据（本地弹幕记录，勿提交）
 data/
-
-# Cloudflare wrangler 本地缓存/状态
-.wrangler/
-
-# Deno 本地 KV 数据库与临时工具
-.deno-kv*
-.tools-deno/
 
 # Node
 node_modules/

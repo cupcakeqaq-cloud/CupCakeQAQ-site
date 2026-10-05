@@ -16,6 +16,8 @@
 
   var seen = {};        // 实时投递去重（避免自己发的显示两条）
   var pool = [];        // 循环播放的留言池
+  var bag = [];         // 洗牌袋：一轮内不重复
+  var pendingSkip = {}; // 开屏已展示过的，第一轮洗牌时跳过
   var loopTimer = null;
   var lastLoopId = null;
 
@@ -81,18 +83,34 @@
     spawn(item.text, item.color);
   }
 
-  // 随机循环播放：从池子里随机挑一条持续飘出
+  // 洗牌袋：把池子打乱后逐条取出，取完再洗一轮 —— 一轮内不重复
+  function refillBag() {
+    bag = pool.filter(function (it) { return !pendingSkip[it.id]; });
+    if (!bag.length) bag = pool.slice(); // 全被跳过时退回完整池子
+    pendingSkip = {};
+    for (var i = bag.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = bag[i]; bag[i] = bag[j]; bag[j] = t;
+    }
+    // 避免新一轮的第一条和上一轮最后一条撞车
+    if (bag.length > 1 && lastLoopId && bag[0].id === lastLoopId) {
+      var t2 = bag[0]; bag[0] = bag[1]; bag[1] = t2;
+    }
+  }
+
+  // 循环播放：留言越少，飘得越慢，避免满屏重复
   function loopTick() {
     if (!document.hidden && pool.length) {
-      var item = pool[Math.floor(Math.random() * pool.length)];
-      // 池子多于一条时，尽量不与上一条重复
-      if (pool.length > 1 && item.id && item.id === lastLoopId) {
-        item = pool[(pool.indexOf(item) + 1) % pool.length];
+      if (!bag.length) refillBag();
+      var item = bag.shift();
+      if (item) {
+        lastLoopId = item.id || null;
+        spawn(item.text, item.color);
       }
-      lastLoopId = item.id || null;
-      spawn(item.text, item.color);
     }
-    loopTimer = setTimeout(loopTick, 1600 + Math.random() * 2400);
+    var n = pool.length;
+    var base = n <= 1 ? 6500 : n <= 3 ? 4800 : n <= 6 ? 3400 : n <= 12 ? 2400 : 1700;
+    loopTimer = setTimeout(loopTick, base + Math.random() * base * 0.5);
   }
   function startLoop() {
     if (loopTimer) return;
@@ -144,9 +162,10 @@
           if (item && item.id) seen[item.id] = 1; // 历史不重复实时投递
           addToPool(item);
         });
-        // 开屏先飘最近几条，之后交给随机循环
-        list.slice(-5).forEach(function (item, i) {
-          setTimeout(function () { spawn(item.text, item.color); }, i * 350);
+        // 开屏先飘最近 3 条（记下来，第一轮洗牌时跳过，避免立刻重复）
+        list.slice(-3).forEach(function (item, i) {
+          pendingSkip[item.id] = 1;
+          setTimeout(function () { spawn(item.text, item.color); }, i * 450);
         });
       })
       .catch(function () { /* 后端不可用：进入本地演示 */ });

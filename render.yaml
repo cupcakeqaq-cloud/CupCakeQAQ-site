@@ -1,9 +1,0 @@
-# Render Blueprint：一键部署留言板后端
-# 用法：在 Render 控制台 New -> Blueprint，连接本仓库即可自动创建 Web Service
-services:
-  - type: web
-    name: cupcake-danmaku
-    runtime: node
-    plan: free
-    buildCommand: ""
-    startCommand: node server.js
