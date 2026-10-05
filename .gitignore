@@ -4,6 +4,10 @@ data/
 # Cloudflare wrangler 本地缓存/状态
 .wrangler/
 
+# Deno 本地 KV 数据库与临时工具
+.deno-kv*
+.tools-deno/
+
 # Node
 node_modules/
 npm-debug.log*

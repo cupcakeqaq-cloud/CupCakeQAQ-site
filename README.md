@@ -63,9 +63,13 @@ npm start
 
 数据保存在 `data/danmaku.json`（最多保留 500 条）。前端与后端分离部署时，改 `js/config.js` 里的 `window.DANMAKU_API` 指向后端地址。
 
-## 部署：GitHub Pages（前端）+ Cloudflare Workers（留言板后端）
+## 部署：GitHub Pages（前端）+ Deno Deploy（留言板后端）
 
-本页前端是纯静态的，放 GitHub Pages；留言板后端用 **Cloudflare Worker + Durable Object**（`worker.js`），免费、不休眠、数据持久。仓库名为 `CupCakeQAQ-site`。
+本页前端是纯静态的，放 GitHub Pages；留言板后端用 **Deno Deploy**（`deno.ts`，数据存在 Deno KV）。仓库名为 `CupCakeQAQ-site`。
+
+> 为什么不用 Cloudflare Workers：`*.workers.dev` 域名在国内网络被 DNS 污染 / 连接阻断，无法访问（除非绑自有域名）。`*.deno.dev` 可正常连通。
+>
+> 仓库里的 `worker.js` + `wrangler.toml` 是 Cloudflare 备用方案，保持原样不影响使用。
 
 ### 1) 前端放到 GitHub Pages
 
@@ -77,38 +81,36 @@ https://cupcakeqaq-cloud.github.io/CupCakeQAQ-site/
 
 > 根目录已放 `.nojekyll`，避免 Jekyll 处理。
 
-### 2) 留言板后端部署到 Cloudflare Workers
+### 2) 留言板后端部署到 Deno Deploy
 
-在本项目根目录执行（首次需要浏览器授权登录）：
-
-```bash
-npx wrangler login     # 会打开浏览器，点授权
-npx wrangler deploy    # 部署 worker.js
-```
-
-部署成功后会输出一个地址，形如：
+1. 打开 <https://console.deno.com/>，用 **GitHub 账号**登录并授权。
+2. **New Project / Create App** → 选择 **Deploy from GitHub** → 授权并选中仓库 `CupCakeQAQ-site`。
+3. 关键设置：
+   - **Entrypoint（入口文件）填 `deno.ts`**
+   - 其它保持默认（Deno 会读取仓库里的 `deno.json`）
+4. 点 **Deploy**，等待构建完成，会得到一个地址，形如：
 
 ```
-https://cupcake-danmaku.你的账号.workers.dev
+https://cupcake-danmaku.你的账号.deno.dev
 ```
+
+> 之后每次往 `main` 推送，Deno Deploy 会自动重新部署。
 
 ### 3) 把后端地址填进前端
 
 编辑 `js/config.js`：
 
 ```js
-window.DANMAKU_API = 'https://cupcake-danmaku.你的账号.workers.dev';
+window.DANMAKU_API = 'https://cupcake-danmaku.你的账号.deno.dev';
 ```
 
-然后提交推送。之后弹幕即通过该 Worker 实现多访客实时互通。
+然后提交推送。之后弹幕即通过该后端实现多访客实时互通。
 
 > 验证后端：浏览器打开 `https://<你的地址>/api/danmaku`，返回 `{"list":[...]}` 即正常。
 >
 > API 与本地 `server.js` 完全一致：`GET /api/danmaku`、`POST /api/danmaku`、`GET /api/danmaku/stream`。
 >
-> 数据存在 Durable Object 的持久化存储中（免费额度含 5GB），实例不会休眠，历史弹幕不会因重启丢失。
->
-> 若改用其它平台（如 Render），仓库里的 `server.js` + `render.yaml` 仍可直接部署，配法相同。
+> 实时推送用 SSE（`kv.watch` 监听 KV 变化），只有内容变化时才唤醒，很省免费额度。
 
 ## 彩蛋
 
