@@ -1,6 +1,9 @@
 # 运行时数据（弹幕记录，勿提交）
 data/
 
+# Cloudflare wrangler 本地缓存/状态
+.wrangler/
+
 # Node
 node_modules/
 npm-debug.log*

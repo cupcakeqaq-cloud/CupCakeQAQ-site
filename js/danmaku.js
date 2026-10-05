@@ -1,4 +1,4 @@
-/* 弹幕留言板：SSE 实时接收 + POST 发送 + 颜色选择，后端不可用时降级为本地演示 */
+/* 弹幕留言板：SSE 实时接收 + 随机循环播放 + POST 发送 + 颜色选择 */
 (function () {
   var screenEl = document.getElementById('danmakuScreen');
   var input = document.getElementById('danmakuInput');
@@ -13,7 +13,11 @@
   var LANES = [10, 42, 74, 106];
   var dots = [];
   var BASE = (window.DANMAKU_API || '').replace(/\/+$/, '');
-  var seen = {}; // 已播放过的弹幕 id，避免自己发的重复显示
+
+  var seen = {};        // 实时投递去重（避免自己发的显示两条）
+  var pool = [];        // 循环播放的留言池
+  var loopTimer = null;
+  var lastLoopId = null;
 
   COLORS.forEach(function (c, i) {
     var d = document.createElement('span');
@@ -59,14 +63,49 @@
     el.addEventListener('animationend', function () { el.remove(); });
   }
 
-  // 带 id 去重的播放：SSE 回显与 POST 返回同一条时只显示一次
-  function spawnItem(item) {
+  /* ---------- 留言池 ---------- */
+  function addToPool(item) {
+    if (!item || !item.text) return;
+    pool.push(item);
+    if (pool.length > 120) pool.shift(); // 池子上限，避免无限增长
+  }
+
+  // 实时投递：同一条（同 id）只立即显示一次
+  function spawnRealtime(item) {
     if (!item || !item.text) return;
     if (item.id) {
       if (seen[item.id]) return;
       seen[item.id] = 1;
     }
+    addToPool(item);
     spawn(item.text, item.color);
+  }
+
+  // 随机循环播放：从池子里随机挑一条持续飘出
+  function loopTick() {
+    if (!document.hidden && pool.length) {
+      var item = pool[Math.floor(Math.random() * pool.length)];
+      // 池子多于一条时，尽量不与上一条重复
+      if (pool.length > 1 && item.id && item.id === lastLoopId) {
+        item = pool[(pool.indexOf(item) + 1) % pool.length];
+      }
+      lastLoopId = item.id || null;
+      spawn(item.text, item.color);
+    }
+    loopTimer = setTimeout(loopTick, 1600 + Math.random() * 2400);
+  }
+  function startLoop() {
+    if (loopTimer) return;
+    loopTick();
+  }
+
+  /* ---------- 发送 ---------- */
+  function localSend(text) {
+    spawnRealtime({
+      id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      text: text,
+      color: currentColor
+    });
   }
 
   function send() {
@@ -80,36 +119,43 @@
         body: JSON.stringify({ text: text, color: currentColor })
       })
         .then(function (r) { return r.json(); })
-        .then(function (d) { if (d && d.ok && d.item) spawnItem(d.item); })
-        .catch(function () { spawn(text, currentColor); });
+        .then(function (d) { if (d && d.ok && d.item) spawnRealtime(d.item); })
+        .catch(function () { localSend(text); });
     } else {
-      spawn(text, currentColor);
+      localSend(text);
     }
   }
 
   sendBtn.addEventListener('click', send);
   input.addEventListener('keydown', function (e) { if (e.key === 'Enter') send(); });
 
+  /* ---------- 初始化 ---------- */
   function init() {
     setStatus('wait');
+    startLoop(); // 无论有没有后端，循环播放都跑起来
 
     fetch(BASE + '/api/danmaku')
       .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
       .then(function (d) {
         connected = true;
         setStatus('on');
-        var list = (d.list || []).slice(-15); // 只回放最近 15 条
-        list.forEach(function (item, i) {
-          setTimeout(function () { spawnItem(item); }, i * 300);
+        var list = d.list || [];
+        list.forEach(function (item) {
+          if (item && item.id) seen[item.id] = 1; // 历史不重复实时投递
+          addToPool(item);
+        });
+        // 开屏先飘最近几条，之后交给随机循环
+        list.slice(-5).forEach(function (item, i) {
+          setTimeout(function () { spawn(item.text, item.color); }, i * 350);
         });
       })
-      .catch(function () { /* 后端不可用 */ });
+      .catch(function () { /* 后端不可用：进入本地演示 */ });
 
     try {
       var es = new EventSource(BASE + '/api/danmaku/stream');
       es.onopen = function () { connected = true; setStatus('on'); };
       es.onmessage = function (ev) {
-        try { spawnItem(JSON.parse(ev.data)); } catch (e) {}
+        try { spawnRealtime(JSON.parse(ev.data)); } catch (e) {}
       };
       es.onerror = function () {
         connected = false;
