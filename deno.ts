@@ -5,7 +5,8 @@
  *   POST /api/danmaku         发送一条弹幕
  *   GET  /api/danmaku/stream  SSE 实时推送
  *
- * 部署：Deno Deploy 新建项目 -> 连接 GitHub 仓库 -> 入口文件填 deno.ts
+ * 说明：Deno KV 需要先在 Deno Deploy 控制台「创建数据库并分配给本应用」。
+ *      未分配时不会崩溃，会自动退回内存存储（可正常收发，但重启后历史会丢）。
  */
 
 const CORS: Record<string, string> = {
@@ -20,20 +21,55 @@ const MAX_TEXT = 120;  // 单条最长字符数
 
 type Item = { id: string; text: string; color: string | null; time: number };
 
-// Deno Deploy 上留空即使用默认 KV 数据库；本地开发可用 KV_PATH 指定存储文件
-const kvPath = Deno.env.get("KV_PATH");
-const kv = kvPath ? await Deno.openKv(kvPath) : await Deno.openKv();
+// ---------- KV 安全打开（拿不到就退回内存） ----------
+let kvPromise: Promise<Deno.Kv | null> | null = null;
+let memList: Item[] = [];
+
+function openKvSafe(): Promise<Deno.Kv | null> {
+  if (!kvPromise) {
+    kvPromise = (async () => {
+      try {
+        const kvPath = Deno.env.get("KV_PATH");
+        return kvPath ? await Deno.openKv(kvPath) : await Deno.openKv();
+      } catch (e) {
+        console.error(
+          "[danmaku] Deno KV 不可用，改用内存存储：",
+          e instanceof Error ? e.message : String(e),
+        );
+        return null;
+      }
+    })();
+  }
+  return kvPromise;
+}
+
+async function loadList(): Promise<Item[]> {
+  const kv = await openKvSafe();
+  if (!kv) return memList;
+  try {
+    const res = await kv.get<Item[]>(KEY);
+    return res.value ?? [];
+  } catch {
+    return memList;
+  }
+}
+
+async function saveList(list: Item[]): Promise<void> {
+  memList = list;
+  const kv = await openKvSafe();
+  if (!kv) return;
+  try {
+    await kv.set(KEY, list);
+  } catch {
+    /* 写入失败时至少内存里还在 */
+  }
+}
 
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { ...CORS, "Content-Type": "application/json; charset=utf-8" },
   });
-}
-
-async function loadList(): Promise<Item[]> {
-  const res = await kv.get<Item[]>(KEY);
-  return res.value ?? [];
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -71,7 +107,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const list = await loadList();
     list.push(item);
-    await kv.set(KEY, list.slice(-MAX_STORE));
+    await saveList(list.slice(-MAX_STORE));
     return json({ ok: true, item });
   }
 
@@ -101,18 +137,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
         send("retry: 3000\n\n");
 
-        try {
-          // 优先用 KV watch：只有内容变化时才唤醒，省额度
-          for await (const [entry] of kv.watch([KEY])) {
-            if (closed) break;
-            pushNew((entry.value as Item[] | null) ?? []);
+        // 优先用 KV watch：只有内容变化时才唤醒，省额度
+        const kv = await openKvSafe();
+        if (kv) {
+          try {
+            for await (const [entry] of kv.watch([KEY])) {
+              if (closed) return;
+              pushNew((entry.value as Item[] | null) ?? []);
+            }
+            return;
+          } catch (e) {
+            console.error(
+              "[danmaku] kv.watch 失败，改用轮询：",
+              e instanceof Error ? e.message : String(e),
+            );
           }
-        } catch {
-          // watch 不可用时退化为轮询
-          while (!closed) {
-            await new Promise((r) => setTimeout(r, 3000));
-            pushNew(await loadList());
-          }
+        }
+
+        // 兜底：轮询
+        while (!closed) {
+          await new Promise((r) => setTimeout(r, 2500));
+          if (closed) break;
+          pushNew(await loadList());
         }
       },
       cancel() { closed = true; },
